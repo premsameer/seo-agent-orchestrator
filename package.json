@@ -1,17 +1,23 @@
 {
-  "name": "hermes-growth-operator",
+  "name": "seo-agent-orchestrator",
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -H 0.0.0.0",
     "build": "next build",
-    "start": "next start",
-    "lint": "eslint"
+    "start": "next start -H 0.0.0.0",
+    "lint": "eslint",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "security:audit": "npm audit --audit-level=high",
+    "seo:collect": "tsx scripts/collect-seo-evidence.ts"
   },
   "dependencies": {
+    "cheerio": "^1.2.0",
     "next": "16.2.10",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "undici": "^8.7.0"
   },
   "devDependencies": {
     "@types/node": "^20",
@@ -19,6 +25,8 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.10",
-    "typescript": "^5"
+    "tsx": "^4.23.0",
+    "typescript": "^5",
+    "vitest": "^4.1.10"
   }
 }
