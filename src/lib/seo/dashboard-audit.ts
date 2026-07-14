@@ -1,6 +1,6 @@
 import type { WebsiteEvidenceReport } from "./evidence";
 
-export type DashboardStageStatus = "complete" | "preliminary" | "requires_hermes";
+export type DashboardStageStatus = "complete" | "preliminary" | "requires_research";
 
 export type DashboardAudit = {
   business: {
@@ -112,15 +112,15 @@ export function createWebsiteUnderstanding(
             : "The primary page was collected, but supporting evidence is partial; review the reported failures.",
       },
       marketResearch: {
-        status: "requires_hermes",
-        detail: "Hermes must research and cite relevant market and competitor pages.",
+        status: "requires_research",
+        detail: "Kairo will research and cite relevant market and competitor pages.",
       },
       keywordStrategy: {
         status: "preliminary",
         detail: "Seeds come only from first-party headings; no volume or ranking claims are inferred.",
       },
       copyGeneration: {
-        status: "requires_hermes",
+        status: "requires_research",
         detail: "Copy is generated only after market evidence and an independent QC pass.",
       },
     },

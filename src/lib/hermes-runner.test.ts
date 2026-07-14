@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { buildRunView, readRunArtifacts } from "./hermes-runner";
+import { KAIRO_SAMPLE_OPERATION } from "./kairo-operation";
 
 const temporaryDirectories: string[] = [];
 
@@ -31,6 +32,7 @@ describe("readRunArtifacts", () => {
       finalCopy: "# Final copy\n\nA supported page promise.",
       qualityReview: "# QC\n\nVerdict: PASS",
       summary: "# Summary\n\nCopy is ready for approval.",
+      operationResult: null,
     });
   });
 
@@ -41,6 +43,19 @@ describe("readRunArtifacts", () => {
       finalCopy: null,
       qualityReview: null,
       summary: null,
+      operationResult: null,
+    });
+  });
+
+  it("returns the validated structured Kairo operation result", async () => {
+    const runDirectory = await temporaryRunDirectory();
+    await writeFile(
+      path.join(runDirectory, "operation-result.json"),
+      JSON.stringify(KAIRO_SAMPLE_OPERATION),
+    );
+
+    await expect(readRunArtifacts(runDirectory)).resolves.toMatchObject({
+      operationResult: KAIRO_SAMPLE_OPERATION,
     });
   });
 });
@@ -62,17 +77,16 @@ describe("buildRunView", () => {
     }, runDirectory);
 
     expect(view.progress.percent).toBeGreaterThan(30);
-    expect(view.progress.stages.map(({ status }) => status)).toEqual([
-      "working",
-      "complete",
-      "complete",
-      "working",
-      "working",
+    expect(view.progress.stages.map(({ id, status }) => [id, status])).toEqual([
+      ["business-analysis", "complete"],
+      ["seo-research", "complete"],
+      ["seo-operation", "working"],
+      ["quality-review", "working"],
     ]);
     expect(view.progress.events.map(({ label }) => label)).toEqual(expect.arrayContaining([
-      "First-party diagnostics saved",
-      "Market evidence packet completed",
-      "Draft copy created",
+      "Business model identified",
+      "Three opportunities shortlisted",
+      "Commercial-page improvement drafted",
     ]));
   });
 

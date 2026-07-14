@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { validateRunArtifacts } from "../../../scripts/seo-run-contract.mjs";
+import { KAIRO_SAMPLE_OPERATION } from "../kairo-operation";
 
 const directories = [];
 
@@ -22,6 +23,7 @@ async function writeValidArtifacts(directory) {
     "final.md": "# Final copy\n\nApproval-ready candidate.",
     "run-state.json": JSON.stringify({ status: "AWAITING_COPY_APPROVAL" }),
     "run-summary.md": "# Summary\n\nReady for copy approval.",
+    "operation-result.json": JSON.stringify(KAIRO_SAMPLE_OPERATION),
   };
   await Promise.all(Object.entries(artifacts).map(([file, content]) =>
     writeFile(path.join(directory, file), content)
@@ -72,5 +74,16 @@ describe("validateRunArtifacts", () => {
     expect(result.valid).toBe(false);
     expect(result.missingArtifacts).toContain("final.md");
     expect(result.errors).toContain("run-summary.md exceeds the 256 KB artifact limit.");
+  });
+
+  it("requires the structured Kairo operation result", async () => {
+    const directory = await runDirectory();
+    await writeValidArtifacts(directory);
+    await rm(path.join(directory, "operation-result.json"));
+
+    const result = await validateRunArtifacts(directory);
+
+    expect(result.valid).toBe(false);
+    expect(result.missingArtifacts).toContain("operation-result.json");
   });
 });

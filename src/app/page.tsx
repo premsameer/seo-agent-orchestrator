@@ -1,5 +1,5 @@
-import AuditDashboard from "../components/audit-dashboard";
+import KairoDashboard from "../components/kairo-dashboard";
 
 export default function Home() {
-  return <AuditDashboard />;
+  return <KairoDashboard />;
 }

@@ -48,8 +48,8 @@ describe("createWebsiteUnderstanding", () => {
       name: "Conversion objective",
       evidenceBasis: "user-objective",
     });
-    expect(result.stages.marketResearch.status).toBe("requires_hermes");
-    expect(result.stages.copyGeneration.status).toBe("requires_hermes");
+    expect(result.stages.marketResearch.status).toBe("requires_research");
+    expect(result.stages.copyGeneration.status).toBe("requires_research");
   });
 
   it("does not invent a heading when the page has no rendered H1", () => {

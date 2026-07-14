@@ -3,12 +3,14 @@ import { randomBytes } from "node:crypto";
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { PageType } from "./brief";
+import { validateKairoOperationResult, type KairoOperationResult } from "./kairo-operation";
 import type { WebsiteEvidenceReport } from "./seo/evidence";
 
 export type HermesRunArtifacts = {
   finalCopy: string | null;
   qualityReview: string | null;
   summary: string | null;
+  operationResult: KairoOperationResult | null;
 };
 
 export type AgentStageStatus = "waiting" | "working" | "complete" | "failed";
@@ -16,7 +18,7 @@ export type AgentStageStatus = "waiting" | "working" | "complete" | "failed";
 export type HermesRunProgress = {
   percent: number;
   stages: Array<{
-    id: "orchestrator" | "site-audit" | "market-research" | "strategy" | "quality-review";
+    id: "business-analysis" | "seo-research" | "seo-operation" | "quality-review";
     status: AgentStageStatus;
     detail: string;
   }>;
@@ -39,6 +41,7 @@ export type HermesRunStatus = {
 type RunInput = {
   url: string;
   objective: string;
+  targetMarket: string;
   pageType: PageType;
 };
 
@@ -53,17 +56,19 @@ const REQUIRED_ARTIFACTS = [
   "final.md",
   "run-state.json",
   "run-summary.md",
+  "operation-result.json",
 ] as const;
 
 const MILESTONES = [
-  { file: "site-evidence.json", label: "First-party diagnostics saved", detail: "The bounded page, robots and sitemap evidence packet is available.", percent: 12 },
-  { file: "rendered-page-evidence.json", label: "Rendered page inspected", detail: "JavaScript-rendered content and conversion paths were checked.", percent: 24 },
-  { file: "market-evidence.md", label: "Market evidence packet completed", detail: "Buyer intent and public competitor evidence were returned by the research specialist.", percent: 40 },
-  { file: "backlog.json", label: "Opportunities prioritised", detail: "Evidence-backed opportunities were scored and one action was selected.", percent: 55 },
-  { file: "draft.md", label: "Draft copy created", detail: "The strategist produced the first bounded copy candidate.", percent: 70 },
-  { file: "qc.md", label: "Independent QC completed", detail: "The reviewer recorded its evidence and quality verdict.", percent: 84 },
-  { file: "final.md", label: "Revised copy candidate ready", detail: "The bounded revision is available for copy approval.", percent: 94 },
-  { file: "run-summary.md", label: "Run summary completed", detail: "The workflow recorded outcomes, unknowns and approval boundaries.", percent: 100 },
+  { file: "site-evidence.json", label: "Business model identified", detail: "The primary offer, conversion path, and first-party page evidence are available.", percent: 12 },
+  { file: "rendered-page-evidence.json", label: "Commercial pages found", detail: "Rendered headings, page structure, and conversion paths were inspected.", percent: 24 },
+  { file: "market-evidence.md", label: "Three opportunities shortlisted", detail: "Focused commercial gaps and search-intent evidence were returned by the researcher.", percent: 40 },
+  { file: "backlog.json", label: "Opportunity scores calculated", detail: "Impact × confidence ÷ effort was calculated and one action selected.", percent: 55 },
+  { file: "draft.md", label: "Commercial-page improvement drafted", detail: "The operator created one implementation-ready page improvement.", percent: 70 },
+  { file: "qc.md", label: "Independent quality review completed", detail: "Unsupported claims, search intent, relevance, and brand fit were checked.", percent: 84 },
+  { file: "final.md", label: "Draft revised", detail: "One bounded revision was completed after independent review.", percent: 94 },
+  { file: "run-summary.md", label: "Quality review passed", detail: "The final recommendation passed the completion gates.", percent: 100 },
+  { file: "operation-result.json", label: "Final deliverable ready", detail: "Business summary, three opportunities, recommendation, and QC result are validated.", percent: 100 },
 ] as const;
 
 function projectRoot(): string {
@@ -82,8 +87,12 @@ function createRunId(url: string): string {
 }
 
 function statusPath(runId: string): string {
-  if (!RUN_ID_PATTERN.test(runId)) throw new Error("Invalid run ID.");
+  if (!isValidRunId(runId)) throw new Error("Invalid run ID.");
   return path.join(projectRoot(), "runs", runId, "dashboard-status.json");
+}
+
+export function isValidRunId(runId: string): boolean {
+  return RUN_ID_PATTERN.test(runId);
 }
 
 async function readOptionalArtifact(filePath: string): Promise<string | null> {
@@ -100,12 +109,16 @@ async function readOptionalArtifact(filePath: string): Promise<string | null> {
 }
 
 export async function readRunArtifacts(runDirectory: string): Promise<HermesRunArtifacts> {
-  const [finalCopy, qualityReview, summary] = await Promise.all([
+  const [finalCopy, qualityReview, summary, operationResultText] = await Promise.all([
     readOptionalArtifact(path.join(runDirectory, "final.md")),
     readOptionalArtifact(path.join(runDirectory, "qc.md")),
     readOptionalArtifact(path.join(runDirectory, "run-summary.md")),
+    readOptionalArtifact(path.join(runDirectory, "operation-result.json")),
   ]);
-  return { finalCopy, qualityReview, summary };
+  const operationResult = operationResultText
+    ? validateKairoOperationResult(JSON.parse(operationResultText))
+    : null;
+  return { finalCopy, qualityReview, summary, operationResult };
 }
 
 async function existingFiles(runDirectory: string): Promise<Map<string, Date>> {
@@ -165,10 +178,9 @@ export async function buildRunView(
       missingArtifacts,
       events,
       stages: [
-        { id: "orchestrator", status: stageStatus(status === "complete", true), detail: active ? "Coordinating evidence handoffs and watching completion gates." : status === "complete" ? "Workflow and approval package completed." : "Workflow stopped before all gates passed." },
-        { id: "site-audit", status: stageStatus(has("site-evidence.json"), true), detail: has("rendered-page-evidence.json") ? "Static and rendered website evidence saved." : has("site-evidence.json") ? "Initial static diagnostics saved; rendered verification may follow." : "Waiting for first-party diagnostics." },
-        { id: "market-research", status: stageStatus(has("market-evidence.md"), has("site-evidence.json")), detail: has("market-evidence.md") ? "Cited market and search-intent evidence saved." : failed ? "Market evidence was not completed." : "Researching buyer intent and public competitor evidence." },
-        { id: "strategy", status: stageStatus(has("final.md"), has("market-evidence.md")), detail: has("final.md") ? "Final bounded copy candidate saved." : failed ? "The strategy and final copy package were not completed." : has("draft.md") ? "Draft created; revision and evidence checks are in progress." : has("market-evidence.md") ? "Ranking opportunities and building one deliverable." : "Waiting for site and market evidence." },
+        { id: "business-analysis", status: stageStatus(has("site-evidence.json"), true), detail: has("site-evidence.json") ? "Business model, audience, conversion action, and commercial pages mapped." : "Understanding the company and its commercial path." },
+        { id: "seo-research", status: stageStatus(has("market-evidence.md"), has("site-evidence.json")), detail: has("market-evidence.md") ? "Focused page signals and three opportunity candidates collected." : failed ? "Focused SEO research was not completed." : "Inspecting commercial coverage, metadata, headings, and intent." },
+        { id: "seo-operation", status: stageStatus(has("final.md"), has("market-evidence.md")), detail: has("final.md") ? "Selected action and commercial-page improvement completed." : failed ? "The selected improvement was not completed." : has("draft.md") ? "One commercial-page improvement drafted." : has("market-evidence.md") ? "Scoring three opportunities and building the strongest action." : "Waiting for focused research." },
         { id: "quality-review", status: stageStatus(has("qc.md"), has("draft.md")), detail: has("qc.md") ? "Independent QC verdict saved." : failed ? "Independent QC was not completed." : has("draft.md") ? "Reviewing claims, links, conversion fit and approval boundaries." : "Waiting for the first draft." },
       ],
     },
@@ -185,7 +197,7 @@ export async function startHermesRun(
     runId,
     status: "starting",
     startedAt: new Date().toISOString(),
-    message: "Starting the SEO Operations Manager and specialist agents.",
+    message: "Kairo is starting the focused SEO operation.",
   };
 
   await mkdir(runDirectory, { recursive: false });

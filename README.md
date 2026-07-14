@@ -1,6 +1,10 @@
-# SEO Agent Orchestrator
+# Kairo
 
-An evidence-first control plane for orchestrating specialist Hermes agents across website diagnostics, market and intent research, opportunity prioritisation, SEO copy generation, and independent quality review.
+**Autonomous SEO operator**
+
+Find your best SEO opportunity. Complete it in one run.
+
+Enter your website and growth goal. Kairo analyses the business, identifies the highest-value SEO action, creates the work, and verifies every claim.
 
 ## Workflow
 
@@ -11,11 +15,11 @@ An evidence-first control plane for orchestrating specialist Hermes agents acros
 5. Produce one bounded copy candidate.
 6. Require an independent QC pass before showing final copy.
 
-The application never publishes or modifies the target website.
+Kairo uses approval-first execution: analysis, prioritisation, creation, and verification are autonomous; publishing and high-risk changes remain under user control.
 
-## Local runtime
+## Run Kairo
 
-The complete workflow requires a locally configured [Hermes Agent](https://hermes-agent.nousresearch.com/docs/) runtime.
+The complete workflow requires a configured Kairo operation worker.
 
 ```bash
 npm install
@@ -34,6 +38,6 @@ npm run security:audit
 npm run build
 ```
 
-## Hosted deployment
+## Hosted preview
 
-The editorial dashboard can be deployed to Vercel as a public product preview. Live audit submission is disabled there because Vercel serverless functions cannot safely spawn the local Hermes runtime or persist its run artifacts. A future hosted version should use an authenticated, signed handoff to a durable Hermes worker.
+The public Vercel experience includes the complete pre-generated sample operation. Live operation submission is disabled until a durable, authenticated operation worker is connected.

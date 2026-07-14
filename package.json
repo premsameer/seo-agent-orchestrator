@@ -1,5 +1,5 @@
 {
-  "name": "seo-agent-orchestrator",
+  "name": "kairo-seo-operator",
   "version": "0.1.0",
   "private": true,
   "scripts": {

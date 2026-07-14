@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import "./kairo.css";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -13,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "SEO Agent Orchestrator",
-  description: "Evidence-backed SEO diagnostics, research, strategy and copy generation orchestrated by specialist Hermes agents.",
+  title: "Kairo · Autonomous SEO Operator",
+  description: "Find your best SEO opportunity, complete the work, and independently verify the result in one run.",
 };
 
 export default function RootLayout({

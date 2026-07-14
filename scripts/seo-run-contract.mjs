@@ -11,9 +11,10 @@ export const REQUIRED_RUN_ARTIFACTS = [
   "final.md",
   "run-state.json",
   "run-summary.md",
+  "operation-result.json",
 ];
 
-const JSON_ARTIFACTS = ["site-evidence.json", "backlog.json", "run-state.json"];
+const JSON_ARTIFACTS = ["site-evidence.json", "backlog.json", "run-state.json", "operation-result.json"];
 const READY_STATES = new Set(["AWAITING_COPY_APPROVAL", "COPY_APPROVED"]);
 
 async function inspectArtifact(runDirectory, file) {

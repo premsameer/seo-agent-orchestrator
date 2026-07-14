@@ -98,7 +98,20 @@ describe("POST /api/audits", () => {
     expect(collectWebsiteEvidenceMock).not.toHaveBeenCalled();
   });
 
-  it("fails clearly when the hosted deployment has no Hermes runtime", async () => {
+  it("requires a supported growth objective", async () => {
+    const response = await POST(
+      new Request("http://localhost/api/audits", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ url: "https://example.com" }),
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(collectWebsiteEvidenceMock).not.toHaveBeenCalled();
+  });
+
+  it("fails clearly when the hosted deployment has no secure operation worker", async () => {
     vi.stubEnv("VERCEL", "1");
     const response = await POST(
       new Request("https://seo-agent-orchestrator.vercel.app/api/audits", {
@@ -110,7 +123,7 @@ describe("POST /api/audits", () => {
     const payload = await response.json();
 
     expect(response.status).toBe(503);
-    expect(payload.error).toContain("local Hermes runtime");
+    expect(payload.error).toContain("secure Kairo operation worker");
     expect(collectWebsiteEvidenceMock).not.toHaveBeenCalled();
     vi.unstubAllEnvs();
   });
@@ -121,7 +134,11 @@ describe("POST /api/audits", () => {
       new Request("http://localhost/api/audits", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ url: "https://example.com" }),
+        body: JSON.stringify({
+          url: "https://example.com",
+          objective: "Generate more qualified leads",
+          targetMarket: "United States",
+        }),
       }),
     );
     const payload = await response.json();
@@ -138,6 +155,8 @@ describe("POST /api/audits", () => {
     expect(payload.run.status).toBe("starting");
     expect(startHermesRunMock).toHaveBeenCalledWith(expect.objectContaining({
       url: "https://example.com/",
+      objective: "Generate more qualified leads",
+      targetMarket: "United States",
       pageType: "unknown",
     }), report);
     vi.unstubAllEnvs();

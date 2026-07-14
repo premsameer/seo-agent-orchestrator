@@ -1,5 +1,6 @@
 import { evaluateBrief } from "../../../lib/brief";
 import { startHermesRun } from "../../../lib/hermes-runner";
+import { GROWTH_OBJECTIVES, type GrowthObjective } from "../../../lib/kairo-operation";
 import { createWebsiteUnderstanding } from "../../../lib/seo/dashboard-audit";
 import { collectWebsiteEvidence } from "../../../lib/seo/evidence";
 
@@ -17,13 +18,10 @@ function json(body: unknown, status: number): Response {
   });
 }
 
-const DEFAULT_OBJECTIVE =
-  "Find and prioritize organic search improvements that can increase qualified conversions for this website.";
-
 export async function POST(request: Request): Promise<Response> {
   if (process.env.VERCEL) {
     return json(
-      { error: "Live SEO agent runs require the local Hermes runtime and are disabled on this hosted deployment." },
+      { error: "Live operations require a secure Kairo operation worker and are not available on this hosted preview." },
       503,
     );
   }
@@ -52,10 +50,22 @@ export async function POST(request: Request): Promise<Response> {
   if (typeof input.url !== "string") {
     return json({ error: "A public website URL is required." }, 400);
   }
+  if (typeof input.objective !== "string" ||
+      !GROWTH_OBJECTIVES.includes(input.objective as GrowthObjective)) {
+    return json({ error: "A supported growth objective is required." }, 400);
+  }
+  if (input.targetMarket !== undefined &&
+      (typeof input.targetMarket !== "string" || input.targetMarket.trim().length > 120)) {
+    return json({ error: "Target market must be 120 characters or fewer." }, 400);
+  }
+  const objective = input.objective as GrowthObjective;
+  const targetMarket = typeof input.targetMarket === "string"
+    ? input.targetMarket.trim() || "Not specified"
+    : "Not specified";
 
   const brief = evaluateBrief({
     url: input.url,
-    objective: DEFAULT_OBJECTIVE,
+    objective,
     pageType: "unknown",
   });
   if (!brief.ok) {
@@ -64,10 +74,11 @@ export async function POST(request: Request): Promise<Response> {
 
   try {
     const evidence = await collectWebsiteEvidence(brief.normalizedUrl);
-    const audit = createWebsiteUnderstanding(evidence, DEFAULT_OBJECTIVE);
+    const audit = createWebsiteUnderstanding(evidence, objective);
     const run = await startHermesRun({
       url: brief.normalizedUrl,
-      objective: DEFAULT_OBJECTIVE,
+      objective,
+      targetMarket,
       pageType: "unknown",
     }, evidence);
     const publicEvidence = {

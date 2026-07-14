@@ -145,7 +145,7 @@ export async function fetchPublicResource(value: string): Promise<ResourceEviden
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       headers: {
         accept: "text/html,application/xml,text/plain;q=0.9,*/*;q=0.1",
-        "user-agent": "HermesSEOOperator/0.1 (+evidence-only; no publishing)",
+        "user-agent": "KairoSEOOperator/0.1 (+evidence-analysis)",
       },
     });
 
