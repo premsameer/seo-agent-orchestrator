@@ -168,7 +168,7 @@ function reportText(operation: KairoOperationResult): string {
 export default function KairoDashboard({ hostedPreview = false }: { hostedPreview?: boolean }) {
   const formRef = useRef<HTMLFormElement>(null);
   const [result, setResult] = useState<AuditResponse | null>(null);
-  const [sampleMode, setSampleMode] = useState(false);
+  const [sampleMode, setSampleMode] = useState(hostedPreview);
   const [error, setError] = useState<string | null>(null);
   const [pollError, setPollError] = useState<{ message: string; retrying: boolean } | null>(null);
   const [pending, setPending] = useState(false);
