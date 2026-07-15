@@ -62,7 +62,7 @@ export type KairoOperationResult = {
     changeExplanation: string[];
   };
   qualityReview: {
-    initialVerdict: "REJECT";
+    initialVerdict: "PASS" | "REJECT";
     rejectedText: string;
     rejectionReason: string;
     requiredRevision: string;
@@ -72,7 +72,7 @@ export type KairoOperationResult = {
     searchIntent: string;
     businessRelevance: string;
     brandFit: string;
-    revisionCount: 1;
+    revisionCount: 0 | 1;
     finalQualityScore: number;
   };
   evidence: string[];
@@ -129,10 +129,13 @@ export function validateKairoOperationResult(value: unknown): KairoOperationResu
   if (result.recommendation?.type !== "commercial-page-improvement") {
     throw new Error("Kairo must return one commercial-page improvement.");
   }
-  if (result.qualityReview?.initialVerdict !== "REJECT" ||
-      result.qualityReview.finalVerdict !== "PASS" ||
-      result.qualityReview.revisionCount !== 1) {
-    throw new Error("Kairo requires one independent rejection and one bounded revision.");
+  const review = result.qualityReview;
+  const validReview = review?.finalVerdict === "PASS" && (
+    (review.initialVerdict === "PASS" && review.revisionCount === 0) ||
+    (review.initialVerdict === "REJECT" && review.revisionCount === 1)
+  );
+  if (!validReview) {
+    throw new Error("Kairo quality review must pass directly or after one bounded revision.");
   }
   if (!Number.isFinite(result.qualityReview.finalQualityScore) ||
       result.qualityReview.finalQualityScore < 0 || result.qualityReview.finalQualityScore > 100) {
@@ -167,11 +170,13 @@ export function validateKairoOperationResult(value: unknown): KairoOperationResu
     assertText(link?.anchor, `recommendation.internalLinks.${index}.anchor`);
     assertText(link?.destination, `recommendation.internalLinks.${index}.destination`);
   }
-  assertText(result.qualityReview?.rejectedText, "qualityReview.rejectedText");
-  assertText(result.qualityReview?.rejectionReason, "qualityReview.rejectionReason");
-  assertText(result.qualityReview?.requiredRevision, "qualityReview.requiredRevision");
-  assertText(result.qualityReview?.revision?.original, "qualityReview.revision.original");
-  assertText(result.qualityReview?.revision?.revised, "qualityReview.revision.revised");
+  if (result.qualityReview.revisionCount === 1) {
+    assertText(result.qualityReview.rejectedText, "qualityReview.rejectedText");
+    assertText(result.qualityReview.rejectionReason, "qualityReview.rejectionReason");
+    assertText(result.qualityReview.requiredRevision, "qualityReview.requiredRevision");
+    assertText(result.qualityReview.revision?.original, "qualityReview.revision.original");
+    assertText(result.qualityReview.revision?.revised, "qualityReview.revision.revised");
+  }
   assertText(result.qualityReview?.claimsVerified, "qualityReview.claimsVerified");
   assertText(result.qualityReview?.searchIntent, "qualityReview.searchIntent");
   assertText(result.qualityReview?.businessRelevance, "qualityReview.businessRelevance");

@@ -13,6 +13,14 @@ const PACKAGE_FIELDS = [
   "operationResult",
 ];
 
+const GROWTH_OBJECTIVES = [
+  "Generate more qualified leads",
+  "Improve a commercial page",
+  "Find a new high-intent page opportunity",
+  "Improve local visibility",
+  "Let Kairo decide",
+];
+
 const OUTPUT_FILES = {
   marketEvidence: "market-evidence.md",
   backlog: "backlog.json",
@@ -40,6 +48,10 @@ function requireTextArray(value, field, minimum = 1) {
 
 function validateOperationResult(result) {
   if (!result || typeof result !== "object" || Array.isArray(result)) throw new Error("operationResult must be an object.");
+  if (typeof result.sample !== "boolean") throw new Error("operationResult.sample must be a boolean.");
+  requireText(result.operationLabel, "operationResult.operationLabel");
+  if (!GROWTH_OBJECTIVES.includes(result.objective)) throw new Error("operationResult.objective is not supported.");
+  requireText(result.targetMarket, "operationResult.targetMarket");
   if (!Array.isArray(result.opportunities) || result.opportunities.length !== 3) throw new Error("operationResult must contain exactly three opportunities.");
   const selected = result.opportunities.filter((opportunity) => opportunity.selected);
   if (selected.length !== 1 || selected[0]?.id !== result.selectedOpportunityId) throw new Error("operationResult must select exactly one opportunity.");
@@ -49,16 +61,27 @@ function validateOperationResult(result) {
     requireText(opportunity.page, `operationResult.opportunity.${opportunity.id}.page`);
     requireText(opportunity.explanation, `operationResult.opportunity.${opportunity.id}.explanation`);
     requireTextArray(opportunity.evidence, `operationResult.opportunity.${opportunity.id}.evidence`);
+    if (!["high", "medium", "low"].includes(opportunity.commercialIntent)) throw new Error(`operationResult.opportunity.${opportunity.id}.commercialIntent is invalid.`);
+    for (const rating of [opportunity.impact, opportunity.confidence, opportunity.effort]) {
+      if (!Number.isInteger(rating) || rating < 1 || rating > 5) throw new Error("operationResult opportunity ratings must be integers from 1 to 5.");
+    }
     if (opportunity.priorityScore !== scoreOpportunity(opportunity)) throw new Error(`operationResult opportunity ${opportunity.id} has an invalid priority score.`);
   }
   if (result.recommendation?.type !== "commercial-page-improvement") throw new Error("operationResult must contain one commercial-page improvement.");
-  if (result.qualityReview?.initialVerdict !== "REJECT" || result.qualityReview?.finalVerdict !== "PASS" || result.qualityReview?.revisionCount !== 1) throw new Error("operationResult must contain one rejection and one passing revision.");
+  const review = result.qualityReview;
+  const validReview = review?.finalVerdict === "PASS" && (
+    (review.initialVerdict === "PASS" && review.revisionCount === 0) ||
+    (review.initialVerdict === "REJECT" && review.revisionCount === 1)
+  );
+  if (!validReview) throw new Error("operationResult quality review must pass directly or after one bounded revision.");
+  if (!Number.isFinite(review.finalQualityScore) || review.finalQualityScore < 0 || review.finalQualityScore > 100) throw new Error("operationResult final quality score must be from 0 to 100.");
   const requiredText = {
     "operationResult.operationLabel": result.operationLabel,
     "operationResult.business.company": result.business?.company,
     "operationResult.business.sells": result.business?.sells,
     "operationResult.business.targetCustomer": result.business?.targetCustomer,
     "operationResult.business.primaryConversion": result.business?.primaryConversion,
+    "operationResult.business.targetMarket": result.business?.targetMarket,
     "operationResult.originalPage.url": result.originalPage?.url,
     "operationResult.originalPage.title": result.originalPage?.title,
     "operationResult.originalPage.metaDescription": result.originalPage?.metaDescription,
@@ -70,13 +93,21 @@ function validateOperationResult(result) {
     "operationResult.recommendation.heroHeadline": result.recommendation?.heroHeadline,
     "operationResult.recommendation.heroCopy": result.recommendation?.heroCopy,
     "operationResult.recommendation.primaryCta": result.recommendation?.primaryCta,
-    "operationResult.qualityReview.rejectedText": result.qualityReview?.rejectedText,
-    "operationResult.qualityReview.rejectionReason": result.qualityReview?.rejectionReason,
-    "operationResult.qualityReview.requiredRevision": result.qualityReview?.requiredRevision,
-    "operationResult.qualityReview.revision.original": result.qualityReview?.revision?.original,
-    "operationResult.qualityReview.revision.revised": result.qualityReview?.revision?.revised,
+    "operationResult.qualityReview.claimsVerified": review.claimsVerified,
+    "operationResult.qualityReview.searchIntent": review.searchIntent,
+    "operationResult.qualityReview.businessRelevance": review.businessRelevance,
+    "operationResult.qualityReview.brandFit": review.brandFit,
   };
   for (const [field, value] of Object.entries(requiredText)) requireText(value, field);
+  if (review.revisionCount === 1) {
+    for (const [field, value] of Object.entries({
+      "operationResult.qualityReview.rejectedText": review.rejectedText,
+      "operationResult.qualityReview.rejectionReason": review.rejectionReason,
+      "operationResult.qualityReview.requiredRevision": review.requiredRevision,
+      "operationResult.qualityReview.revision.original": review.revision?.original,
+      "operationResult.qualityReview.revision.revised": review.revision?.revised,
+    })) requireText(value, field);
+  }
   requireTextArray(result.business?.commercialPages, "operationResult.business.commercialPages");
   requireTextArray(result.originalPage?.structure, "operationResult.originalPage.structure");
   requireTextArray(result.recommendation?.pageStructure, "operationResult.recommendation.pageStructure", 4);
@@ -86,6 +117,10 @@ function validateOperationResult(result) {
   requireTextArray(result.selectionReasons, "operationResult.selectionReasons", 3);
   requireTextArray(result.evidence, "operationResult.evidence");
   if (!Array.isArray(result.recommendation?.internalLinks) || result.recommendation.internalLinks.length === 0) throw new Error("operationResult.recommendation.internalLinks must contain at least one link.");
+  for (const [index, link] of result.recommendation.internalLinks.entries()) {
+    requireText(link?.anchor, `operationResult.recommendation.internalLinks.${index}.anchor`);
+    requireText(link?.destination, `operationResult.recommendation.internalLinks.${index}.destination`);
+  }
 }
 
 function normalizeTextList(value) {

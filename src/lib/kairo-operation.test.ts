@@ -35,6 +35,23 @@ describe("Kairo operation result", () => {
     );
   });
 
+  it("accepts a clean independent review without inventing a revision", () => {
+    const result = validateKairoOperationResult({
+      ...KAIRO_SAMPLE_OPERATION,
+      qualityReview: {
+        ...KAIRO_SAMPLE_OPERATION.qualityReview,
+        initialVerdict: "PASS",
+        rejectedText: "",
+        rejectionReason: "",
+        requiredRevision: "",
+        revision: { original: "", revised: "" },
+        revisionCount: 0,
+      },
+    });
+
+    expect(result.qualityReview.revisionCount).toBe(0);
+  });
+
   it("rejects malformed opportunity sets and score manipulation", () => {
     expect(() => validateKairoOperationResult({
       ...KAIRO_SAMPLE_OPERATION,

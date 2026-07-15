@@ -1,6 +1,7 @@
 import * as cheerio from "cheerio";
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
+import { Agent, fetch as pinnedFetch } from "undici";
 
 const MAX_RESPONSE_BYTES = 2_000_000;
 const MAX_REDIRECTS = 3;
@@ -97,14 +98,23 @@ export function validatePublicHttpUrl(value: string): URL {
   return url;
 }
 
-async function assertPublicDnsTarget(url: URL): Promise<void> {
+async function resolvePublicDnsTarget(url: URL) {
   const results = await lookup(url.hostname, { all: true, verbatim: true });
   if (results.length === 0 || results.some(({ address }) => isPrivateIp(address))) {
     throw new Error("Target resolves to a private or unavailable network address.");
   }
+  return results;
 }
 
-async function readBoundedText(response: Response): Promise<string> {
+async function readBoundedText(response: {
+  headers: { get(name: string): string | null };
+  body: {
+    getReader(): {
+      read(): Promise<{ done: true; value?: undefined } | { done: false; value: Uint8Array }>;
+      cancel(): Promise<unknown>;
+    };
+  } | null;
+}): Promise<string> {
   const declaredLength = Number(response.headers.get("content-length") ?? "0");
   if (declaredLength > MAX_RESPONSE_BYTES) {
     throw new Error("Response exceeds the 2 MB evidence limit.");
@@ -139,31 +149,42 @@ export async function fetchPublicResource(value: string): Promise<ResourceEviden
   let url = validatePublicHttpUrl(value);
 
   for (let redirect = 0; redirect <= MAX_REDIRECTS; redirect += 1) {
-    await assertPublicDnsTarget(url);
-    const response = await fetch(url, {
-      redirect: "manual",
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-      headers: {
-        accept: "text/html,application/xml,text/plain;q=0.9,*/*;q=0.1",
-        "user-agent": "KairoSEOOperator/0.1 (+evidence-analysis)",
+    const addresses = await resolvePublicDnsTarget(url);
+    const target = addresses[0];
+    const dispatcher = new Agent({
+      connect: {
+        lookup: (_hostname, _options, callback) => callback(null, target.address, target.family),
       },
     });
+    try {
+      const response = await pinnedFetch(url, {
+        dispatcher,
+        redirect: "manual",
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+        headers: {
+          accept: "text/html,application/xml,text/plain;q=0.9,*/*;q=0.1",
+          "user-agent": "KairoSEOOperator/0.1 (+evidence-analysis)",
+        },
+      });
 
-    if (response.status >= 300 && response.status < 400) {
-      const location = response.headers.get("location");
-      if (!location) {
-        throw new Error(`Redirect from ${url.toString()} did not include a location.`);
+      if (response.status >= 300 && response.status < 400) {
+        const location = response.headers.get("location");
+        if (!location) {
+          throw new Error(`Redirect from ${url.toString()} did not include a location.`);
+        }
+        url = validatePublicHttpUrl(new URL(location, url).toString());
+        continue;
       }
-      url = validatePublicHttpUrl(new URL(location, url).toString());
-      continue;
-    }
 
-    return {
-      sourceUrl: url.toString(),
-      retrievedAt: new Date().toISOString(),
-      status: response.status,
-      content: await readBoundedText(response),
-    };
+      return {
+        sourceUrl: url.toString(),
+        retrievedAt: new Date().toISOString(),
+        status: response.status,
+        content: await readBoundedText(response),
+      };
+    } finally {
+      await dispatcher.close();
+    }
   }
 
   throw new Error(`Target exceeded ${MAX_REDIRECTS} redirects.`);

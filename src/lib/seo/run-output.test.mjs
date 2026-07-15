@@ -62,6 +62,18 @@ describe("agent output package", () => {
     }))).toThrow("exactly three opportunities");
   });
 
+  it("rejects ratings that the API-side operation validator would reject", () => {
+    expect(() => parseAgentPackage(JSON.stringify({
+      ...packagePayload,
+      operationResult: {
+        ...KAIRO_SAMPLE_OPERATION,
+        opportunities: KAIRO_SAMPLE_OPERATION.opportunities.map((opportunity, index) => index === 0
+          ? { ...opportunity, effort: -2, priorityScore: -12.5 }
+          : opportunity),
+      },
+    }))).toThrow("ratings must be integers from 1 to 5");
+  });
+
   it("rejects an incomplete structured recommendation", () => {
     expect(() => parseAgentPackage(JSON.stringify({
       ...packagePayload,

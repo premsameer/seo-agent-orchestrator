@@ -152,9 +152,11 @@ function reportText(operation: KairoOperationResult): string {
     "",
     "QUALITY REVIEW",
     `Initial verdict: ${operation.qualityReview.initialVerdict}`,
-    `Rejected: ${operation.qualityReview.rejectedText}`,
-    `Reason: ${operation.qualityReview.rejectionReason}`,
-    `Revision: ${operation.qualityReview.revision.revised}`,
+    ...(operation.qualityReview.revisionCount === 1 ? [
+      `Rejected: ${operation.qualityReview.rejectedText}`,
+      `Reason: ${operation.qualityReview.rejectionReason}`,
+      `Revision: ${operation.qualityReview.revision.revised}`,
+    ] : ["No revision required."]),
     `Final verdict: ${operation.qualityReview.finalVerdict}`,
     `Final quality score: ${operation.qualityReview.finalQualityScore}/100`,
     "",
@@ -163,7 +165,7 @@ function reportText(operation: KairoOperationResult): string {
   ].join("\n");
 }
 
-export default function KairoDashboard() {
+export default function KairoDashboard({ hostedPreview = false }: { hostedPreview?: boolean }) {
   const formRef = useRef<HTMLFormElement>(null);
   const [result, setResult] = useState<AuditResponse | null>(null);
   const [sampleMode, setSampleMode] = useState(false);
@@ -221,6 +223,10 @@ export default function KairoDashboard() {
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (pending) return;
+    if (hostedPreview) {
+      setError("Live operations are available in the secure local worker. Use the complete sample result on this hosted preview.");
+      return;
+    }
     setError(null);
     setPollError(null);
     setSampleMode(false);
@@ -344,9 +350,10 @@ export default function KairoDashboard() {
             <label className="wideField"><span>Website URL</span><input name="url" type="url" required autoFocus placeholder="https://yourcompany.com" /></label>
             <label><span>Growth objective</span><select name="objective" required defaultValue="Generate more qualified leads">{GROWTH_OBJECTIVES.map((objective) => <option key={objective}>{objective}</option>)}</select></label>
             <label><span>Target market <em>Optional</em></span><input name="targetMarket" type="text" maxLength={120} placeholder="e.g. Bengaluru, India or Global" /></label>
-            <button className="primaryButton" type="submit" disabled={pending}>{pending ? "Starting operation…" : "Start operation"}<span aria-hidden="true">→</span></button>
+            <button className="primaryButton" type="submit" disabled={pending || hostedPreview}>{pending ? "Starting operation…" : hostedPreview ? "Hosted sample only" : "Start operation"}<span aria-hidden="true">→</span></button>
           </form>
-          <p className="formHint">Kairo analyses public website information and does not make changes to your website.</p>
+          <p className="formHint">{hostedPreview ? "This hosted preview provides the complete sample operation. Live execution requires the secure local worker." : "Kairo analyses public website information and does not make changes to your website."}</p>
+          {hostedPreview && <button className="textButton" type="button" onClick={showSample}>View complete sample operation ↑</button>}
           <div className="approvalNote"><strong>Approval-first execution</strong><p>Kairo can analyse, prioritise, and create autonomously. Website publishing and high-risk changes remain under user control.</p></div>
           {error && <div className="runError" role="alert"><strong>Operation could not start</strong><p>{error}</p><div className="inlineActions"><button type="button" onClick={() => formRef.current?.requestSubmit()}>Retry</button><button type="button" onClick={showSample}>Use sample result</button></div></div>}
           {result && <div className={`runBanner ${result.run.status}`} role="status"><span className={`statusDot ${["starting", "running"].includes(result.run.status) ? "isActive" : ""}`} /><div><strong>{statusLabel(result.run.status)} · {elapsedLabel(result.run.startedAt, result.run.finishedAt, now)}</strong><p>{result.run.message}</p></div><code>{result.run.runId}</code></div>}
@@ -410,10 +417,10 @@ function OperationResult({ operation, onCopy, onDownload, onReset, copied }: {
       </div>
       <div className="recommendationDetails"><article><span className="panelLabel">RECOMMENDED PAGE STRUCTURE</span><ol>{operation.recommendation.pageStructure.map((item) => <li key={item}>{item}</li>)}</ol></article><article><span className="panelLabel">SECTIONS TO ADD OR IMPROVE</span><ul>{operation.recommendation.sectionsToImprove.map((item) => <li key={item}>{item}</li>)}</ul></article><article><span className="panelLabel">FAQ SUGGESTIONS</span><ul>{operation.recommendation.faqs.map((item) => <li key={item}>{item}</li>)}</ul></article><article><span className="panelLabel">INTERNAL LINKS</span><ul>{operation.recommendation.internalLinks.map((item) => <li key={item.anchor}><strong>{item.anchor}</strong><span>{item.destination}</span></li>)}</ul></article></div>
 
-      <div className="qualityLoop">
+      {operation.qualityReview.revisionCount === 1 ? <div className="qualityLoop">
         <div className="qualityFailed"><span className="reviewVerdict">Quality review failed</span><blockquote>{operation.qualityReview.rejectedText}</blockquote><dl><div><dt>Reason for rejection</dt><dd>{operation.qualityReview.rejectionReason}</dd></div><div><dt>Required revision</dt><dd>{operation.qualityReview.requiredRevision}</dd></div></dl></div>
         <div className="qualityPassed"><span className="reviewVerdict">Revision completed</span><div className="revisionCompare"><p><small>Original statement</small>{operation.qualityReview.revision.original}</p><p><small>Revised statement</small>{operation.qualityReview.revision.revised}</p></div><strong>Final review result · {operation.qualityReview.finalVerdict}</strong></div>
-      </div>
+      </div> : <div className="qualityLoop"><div className="qualityPassed"><span className="reviewVerdict">Passed first review</span><strong>No revision was required · {operation.qualityReview.finalVerdict}</strong></div></div>}
       <article className="qualityScore"><div><span className="panelLabel">FINAL QUALITY SCORE</span><strong>{operation.qualityReview.finalQualityScore}</strong><small>/100</small><p>Pass threshold 85 · no blocking claim failures</p></div><dl><div><dt>Claims verified · 25 points</dt><dd>{operation.qualityReview.claimsVerified}</dd></div><div><dt>Search intent · 25 points</dt><dd>{operation.qualityReview.searchIntent}</dd></div><div><dt>Business relevance · 25 points</dt><dd>{operation.qualityReview.businessRelevance}</dd></div><div><dt>Brand fit · 25 points</dt><dd>{operation.qualityReview.brandFit}</dd></div><div><dt>Revision deduction</dt><dd>{100 - operation.qualityReview.finalQualityScore} points deducted after {operation.qualityReview.revisionCount} bounded revision</dd></div></dl></article>
 
       <div className="handoffNote"><strong>Approval handoff ready</strong><span>Copy and download include only the final independently reviewed recommendation.</span></div><div className="finalActions"><button className="primaryButton" type="button" onClick={onCopy}>{copied ? "Copied" : "Copy final recommendation"}</button><button className="secondaryButton" type="button" onClick={onDownload}>Download report</button><button className="textButton" type="button" onClick={onReset}>Start another operation ↑</button></div>
