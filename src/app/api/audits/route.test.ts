@@ -111,6 +111,39 @@ describe("POST /api/audits", () => {
     expect(collectWebsiteEvidenceMock).not.toHaveBeenCalled();
   });
 
+  it("requires a valid operation key when KAIRO_API_KEY is set", async () => {
+    vi.stubEnv("KAIRO_API_KEY", "secret-key");
+    const responses = await Promise.all([
+      POST(
+        new Request("http://localhost/api/audits", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ url: "https://example.com" }),
+        }),
+      ),
+      POST(
+        new Request("http://localhost/api/audits", {
+          method: "POST",
+          headers: { "content-type": "application/json", "x-kairo-key": "wrong" },
+          body: JSON.stringify({ url: "https://example.com" }),
+        }),
+      ),
+      POST(
+        new Request("http://localhost/api/audits", {
+          method: "POST",
+          headers: { "content-type": "application/json", "x-kairo-key": "secret-key" },
+          body: JSON.stringify({ url: "https://example.com" }),
+        }),
+      ),
+    ]);
+
+    expect(responses[0].status).toBe(401);
+    expect(responses[1].status).toBe(401);
+    expect(responses[2].status).toBe(400); // key accepted, then fails on missing objective
+    expect(collectWebsiteEvidenceMock).not.toHaveBeenCalled();
+    vi.unstubAllEnvs();
+  });
+
   it("fails clearly when the hosted deployment has no secure operation worker", async () => {
     vi.stubEnv("VERCEL", "1");
     const response = await POST(

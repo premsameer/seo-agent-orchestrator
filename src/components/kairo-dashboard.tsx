@@ -350,9 +350,9 @@ export default function KairoDashboard({ hostedPreview = false }: { hostedPrevie
             <label className="wideField"><span>Website URL</span><input name="url" type="url" required autoFocus placeholder="https://yourcompany.com" /></label>
             <label><span>Growth objective</span><select name="objective" required defaultValue="Generate more qualified leads">{GROWTH_OBJECTIVES.map((objective) => <option key={objective}>{objective}</option>)}</select></label>
             <label><span>Target market <em>Optional</em></span><input name="targetMarket" type="text" maxLength={120} placeholder="e.g. Bengaluru, India or Global" /></label>
-            <button className="primaryButton" type="submit" disabled={pending || hostedPreview}>{pending ? "Starting operation…" : hostedPreview ? "Hosted sample only" : "Start operation"}<span aria-hidden="true">→</span></button>
+            <button className="primaryButton" type="submit" disabled={pending || hostedPreview}>{pending ? "Starting operation…" : hostedPreview ? "Sample only" : "Start operation"}<span aria-hidden="true">→</span></button>
           </form>
-          <p className="formHint">{hostedPreview ? "This hosted preview provides the complete sample operation. Live execution requires the secure local worker." : "Kairo analyses public website information and does not make changes to your website."}</p>
+          <p className="formHint">{hostedPreview ? "This deployment shows the complete sample operation. Live execution requires a configured Kairo worker." : "Kairo analyses public website information and does not make changes to your website."}</p>
           {hostedPreview && <button className="textButton" type="button" onClick={showSample}>View complete sample operation ↑</button>}
           <div className="approvalNote"><strong>Approval-first execution</strong><p>Kairo can analyse, prioritise, and create autonomously. Website publishing and high-risk changes remain under user control.</p></div>
           {error && <div className="runError" role="alert"><strong>Operation could not start</strong><p>{error}</p><div className="inlineActions"><button type="button" onClick={() => formRef.current?.requestSubmit()}>Retry</button><button type="button" onClick={showSample}>Use sample result</button></div></div>}

@@ -19,7 +19,15 @@ function json(body: unknown, status: number): Response {
 }
 
 export async function POST(request: Request): Promise<Response> {
-  if (process.env.VERCEL) {
+  const apiKey = process.env.KAIRO_API_KEY;
+  if (apiKey && request.headers.get("x-kairo-key") !== apiKey) {
+    return json({ error: "A valid operation key is required." }, 401);
+  }
+
+  const live = process.env.VERCEL
+    ? String(process.env.KAIRO_LIVE ?? "").startsWith("1")
+    : String(process.env.KAIRO_LIVE ?? "") !== "0";
+  if (!live) {
     return json(
       { error: "Live operations require a secure Kairo operation worker and are not available on this hosted preview." },
       503,
