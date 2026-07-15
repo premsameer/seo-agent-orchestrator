@@ -18,13 +18,40 @@ process/filesystem).
                               header `x-kairo-key: <value>`.
 - `HERMES_SEO_MAX_RUNTIME_MS` — optional worker timeout (default 1,800,000).
 
-## Render / Fly / VM (Docker)
+## Permanent deploy — Render (recommended for MVP)
+`render.yaml` in this repo configures a Docker web service with a persistent
+disk at `/app/runs`. To go live permanently:
 1. Push this repo to GitHub.
-2. Create a new web service from the Dockerfile.
-3. Set `KAIRO_LIVE=1` and (recommended) `KAIRO_API_KEY=<strong secret>`.
-4. Provide Hermes: either bake an install step into the Dockerfile, or mount
-   the host `~/.hermes` and a `hermes` binary as a volume/env.
-5. Mount a persistent volume at `/app/runs`.
+2. New → Web Service → connect the repo → Render auto-detects `render.yaml`.
+3. In Render dashboard, set `KAIRO_API_KEY` to a strong random string
+   (secret; not in git).
+4. Provide Hermes. Easiest MVP path: add a start command that installs the
+   Hermes CLI then boots the app. Create `start.sh`:
+   ```bash
+   #!/usr/bin/env bash
+   set -euo pipefail
+   # Install Hermes CLI if missing (adjust to your install method).
+   if ! command -v hermes >/dev/null 2>&1; then
+     npm install -g hermes-cli   # or your org's install command
+   fi
+   # Mount authenticated ~/.hermes from a Render secret file (dashboard:
+   # Secret Files → ~/.hermes). Ensure it is present before starting.
+   exec npm run start
+   ```
+   Point the Render service's start command at `bash start.sh`.
+5. Optionally map a custom domain in the Render dashboard.
+
+Once built, you get a permanent `https://hermes-growth-operator.onrender.com`
+(or your domain) — no tunnel, no session dependency.
+
+## Temporary demo — Cloudflare quick tunnel (session-bound)
+For a fast local demo without a host:
+```bash
+npm run start                       # serves :3000 (KAIRO_LIVE defaults to 1)
+cloudflared tunnel --url http://localhost:3000
+```
+The `*.trycloudflare.com` URL dies when this machine/session ends. Not for
+production.
 
 ## Verify
 - Homepage loads the live form (not "Sample only").
@@ -32,6 +59,7 @@ process/filesystem).
    -H 'x-kairo-key: <key>' -d '{"url":"https://example.com",
    "objective":"Generate more qualified leads"}'` → 202.
 - Without the key (when set) → 401.
+- Poll `GET /api/runs/<runId>` until `status: complete`.
 
 ## If you only want the preview
 Leave `KAIRO_LIVE=0`. The site serves the full sample operation; no Hermes

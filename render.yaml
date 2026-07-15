@@ -1,0 +1,39 @@
+# Render web service (stateful host) — permanent live deployment.
+# Connect this repo at https://dashboard.render.com and Render reads this file.
+# The app runs LIVE (KAIRO_LIVE defaults to 1 off-Vercel). Provide the `hermes`
+# CLI binary + authenticated ~/.hermes as a mounted volume/secret (see notes).
+services:
+  - type: web
+    name: hermes-growth-operator
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: starter
+    region: oregon
+    healthCheckPath: /
+    # Persistent disk for worker run artifacts (/app/runs).
+    disk:
+      name: kairo-runs
+      mountPath: /app/runs
+      sizeGB: 10
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "3000"
+      - key: KAIRO_LIVE
+        value: "1"
+      # Set in Render dashboard (secret): a strong random string.
+      - key: KAIRO_API_KEY
+        sync: false
+      # Optional: worker timeout in ms (default 1,800,000).
+      # - key: HERMES_SEO_MAX_RUNTIME_MS
+      #   value: "1800000"
+
+# NOTE on the worker binary:
+# The live run spawns `hermes chat` as a subprocess. The Dockerfile does NOT
+# bundle Hermes credentials. Two options on Render:
+#   1) Bake an install step into Dockerfile (needs network at build + your auth
+#      copied in at build time — not recommended for secrets).
+#   2) Use a pre-deploy/start script that installs Hermes and mounts ~/.hermes
+#      from a Render secret file. Simplest for MVP: add a `start` command that
+#      installs the Hermes CLI, then runs `npm run start`. See DEPLOY-STATEFUL.md.
