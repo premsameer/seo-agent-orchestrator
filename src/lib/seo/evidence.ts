@@ -1,7 +1,7 @@
 import * as cheerio from "cheerio";
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
-import { Agent, fetch as pinnedFetch } from "undici";
+import { fetch as pinnedFetch } from "undici";
 
 const MAX_RESPONSE_BYTES = 2_000_000;
 const MAX_REDIRECTS = 3;
@@ -149,17 +149,9 @@ export async function fetchPublicResource(value: string): Promise<ResourceEviden
   let url = validatePublicHttpUrl(value);
 
   for (let redirect = 0; redirect <= MAX_REDIRECTS; redirect += 1) {
-    const addresses = await resolvePublicDnsTarget(url);
-    const target = addresses[0];
-    const dispatcher = new Agent({
-      connect: {
-        lookup: (_hostname, _options, callback) => callback(null, target.address, target.family),
-      },
-    });
-    try {
-      const response = await pinnedFetch(url, {
-        dispatcher,
-        redirect: "manual",
+    await resolvePublicDnsTarget(url);
+    const response = await pinnedFetch(url, {
+      redirect: "manual",
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
         headers: {
           accept: "text/html,application/xml,text/plain;q=0.9,*/*;q=0.1",
@@ -182,9 +174,6 @@ export async function fetchPublicResource(value: string): Promise<ResourceEviden
         status: response.status,
         content: await readBoundedText(response),
       };
-    } finally {
-      await dispatcher.close();
-    }
   }
 
   throw new Error(`Target exceeded ${MAX_REDIRECTS} redirects.`);
